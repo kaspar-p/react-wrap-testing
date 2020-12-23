@@ -1,19 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import Button from "@material-ui/core/Button";
+import ReactDOM from "react-dom";
+import ReactDOMServer from "react-dom/server";
+import { Replacer } from "react-element-replace";
 import "./App.css";
-
-const shouldWrapChild = (id) => {
-  return id === "wrap-me";
-};
-
-const wrapType = (id) => {
-  switch (id) {
-    case "wrap-me":
-      return "div";
-    default:
-      return "div";
-  }
-};
 
 const col1 = "#eb4034";
 const col2 = "#FFFFFF";
@@ -32,63 +22,21 @@ const toggleColor = (event) => {
   }
 };
 
-const wrapProps = (id) => {
-  let props = {};
-  switch (id) {
-    case "wrap-me":
-      props = {
-        style: { color: col2 },
-        onMouseOver: toggleColor,
-        onMouseOut: toggleColor,
-      };
-      break;
-    default:
-      break;
-  }
+function Child(props) {
+  return <p id="wrap-me">Hello, {props.name}!</p>;
+}
 
-  return { ...props, id };
-};
+function Viewer(props) {
+  const [counter, s] = useState(0);
 
-const RecursiveWrapper = (props) => {
-  console.log(props.children);
-
-  const wrappedChildren = React.Children.map(props.children, (child) => {
-    console.log(child.props);
-    if (child.props && child.props.children) {
-      console.log(child.props);
-      if (shouldWrapChild(child.props.id)) {
-        return React.createElement(
-          wrapType(child.props.id),
-          wrapProps(child.props.id),
-          React.cloneElement(
-            child,
-            {},
-            <RecursiveWrapper>{child.props.children}</RecursiveWrapper>
-          )
-        );
-      } else {
-        return React.cloneElement(
-          child,
-          {},
-          <RecursiveWrapper>{child.props.children}</RecursiveWrapper>
-        );
-      }
-    }
-
-    return child;
-  });
-  return <React.Fragment>{wrappedChildren}</React.Fragment>;
-};
-
-function Viewer() {
   return (
     <div className="App">
       <header className="App-header">
         <Button
           style={{ backgroundColor: "white" }}
-          // onClick={(e) => setEditable(!editable)}
+          onClick={() => props.setEditable(!props.editable)}
         >
-          Make {true ? "static" : "responsive"}
+          Make {props.editable ? "static" : "responsive"}
         </Button>
         <div
           id="outer"
@@ -99,7 +47,7 @@ function Viewer() {
             padding: "20px",
           }}
         >
-          <p id="wrap-me">Hello, world!</p>
+          <Child name="Charles" />
         </div>
       </header>
     </div>
@@ -108,39 +56,52 @@ function Viewer() {
 
 function App() {
   const [editable, setEditable] = useState(true);
-  const [counter, setCounter] = useState(0);
 
-  console.log("render");
+  const view = <Viewer setEditable={setEditable} editable={editable} />;
 
-  let toRender = (
-    <div className="App">
-      <header className="App-header">
-        <Button
-          style={{ backgroundColor: "white" }}
-          // onClick={(e) => setEditable(!editable)}
-        >
-          Make {true ? "static" : "responsive"}
-        </Button>
-        <div
-          id="outer"
-          style={{
-            border: `solid white 2px`,
-            borderRadius: "10px",
-            margin: "30px",
-            padding: "20px",
-          }}
-        >
-          <p id="wrap-me">Hello, world!</p>
-        </div>
-      </header>
-    </div>
-  );
+  const allReplacers = composeReplacers(view);
 
   if (editable) {
-    return <RecursiveWrapper>{toRender}</RecursiveWrapper>;
+    return allReplacers;
   } else {
-    return toRender;
+    return view;
   }
 }
+
+const matchReplacePairs = [
+  {
+    match: (e) => {
+      return e.props ? e.props.id === "wrap-me" : false;
+    },
+    replace: (child) => (
+      <div
+        id="new-child-id"
+        style={{ color: col2 }}
+        onMouseOver={toggleColor}
+        onMouseOut={toggleColor}
+      >
+        {child}
+      </div>
+    ),
+  },
+];
+
+const getComponentFromPair = (pair, children) => {
+  return (
+    <Replacer match={pair.match} replace={pair.replace}>
+      {children}
+    </Replacer>
+  );
+};
+
+// Since each <Replacer /> can only execute one "rule" we need a composition of them for as many rules as we have
+// This creates a nest of <Replacer /> components each executing one rule.
+const composeReplacers = (view) => {
+  return matchReplacePairs.reduce(
+    (accumulation, currentPair) =>
+      getComponentFromPair(currentPair, accumulation),
+    view
+  );
+};
 
 export default App;
