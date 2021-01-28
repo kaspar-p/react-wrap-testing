@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, Fragment } from "react";
+import PropTypes from "prop-types";
 import Button from "@material-ui/core/Button";
 import ReactDOM from "react-dom";
 import ReactDOMServer from "react-dom/server";
@@ -53,6 +54,10 @@ function Viewer(props) {
     </div>
   );
 }
+
+Viewer.propTypes = PropTypes.outerExact({
+  editable: PropTypes.string.isRequired,
+});
 
 function App() {
   const [editable, setEditable] = useState(true);
